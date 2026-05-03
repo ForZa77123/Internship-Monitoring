@@ -1,0 +1,71 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  INTERN
+}
+
+enum PresenceStatus {
+  ACTIVE
+  IDLE
+  AWAY
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model User {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  password     String
+  role         Role          @default(INTERN)
+  presenceLogs PresenceLog[]
+  activityLogs ActivityLog[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("users")
+}
+
+model PresenceLog {
+  id        String         @id @default(cuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    PresenceStatus
+  timestamp DateTime       @default(now())
+
+  @@index([userId, timestamp])
+  @@map("presence_logs")
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskTitle   String
+  description String   @db.Text
+  startTime   DateTime
+  endTime     DateTime
+  isValidated Boolean  @default(false)
+  // ADMIN can approve or reject a log with an optional note
+  validationStatus String? // "APPROVED" | "REJECTED" | null
+  validationNote   String? @db.Text
+  validatedAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@map("activity_logs")
+}
