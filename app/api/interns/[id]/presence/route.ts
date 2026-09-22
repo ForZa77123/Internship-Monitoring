@@ -15,8 +15,9 @@ import { startOfDay, endOfDay } from "date-fns";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const session = await auth();
 
   if (!session) {
@@ -24,13 +25,13 @@ export async function GET(
   }
 
   // INTERNs can only view their own logs
-  if (session.user.role === "INTERN" && session.user.id !== params.id) {
+  if (session.user.role === "INTERN" && session.user.id !== id) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 
   // Verify the target intern exists
   const intern = await prisma.user.findFirst({
-    where: { id: params.id, role: "INTERN" },
+    where: { id, role: "INTERN" },
     select: { id: true, name: true },
   });
 
@@ -38,19 +39,54 @@ export async function GET(
     return NextResponse.json({ error: "Intern not found." }, { status: 404 });
   }
 
-  // Parse optional date filter
   const { searchParams } = new URL(request.url);
   const dateParam = searchParams.get("date");
   const targetDate = dateParam ? new Date(dateParam) : new Date();
 
-  const logs = await prisma.presenceLog.findMany({
-    where: {
-      userId: params.id,
-      timestamp: {
-        gte: startOfDay(targetDate),
-        lte: endOfDay(targetDate),
-      },
+  if (isNaN(targetDate.getTime())) {
+    return NextResponse.json({ error: "Invalid date." }, { status: 400 });
+  }
+
+  const pageParam = searchParams.get("page");
+  const limitParam = searchParams.get("limit");
+
+  const where = {
+    userId: id,
+    timestamp: {
+      gte: startOfDay(targetDate),
+      lte: endOfDay(targetDate),
     },
+  };
+
+  if (pageParam) {
+    const page = Math.max(parseInt(pageParam, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(limitParam || "20", 10) || 20, 1), 100);
+    const skip = (page - 1) * limit;
+
+    const [logs, total] = await Promise.all([
+      prisma.presenceLog.findMany({
+        where,
+        orderBy: { timestamp: "desc" },
+        skip,
+        take: limit,
+      }),
+      prisma.presenceLog.count({ where }),
+    ]);
+
+    return NextResponse.json({
+      data: logs,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+      intern,
+    });
+  }
+
+  const logs = await prisma.presenceLog.findMany({
+    where,
     orderBy: { timestamp: "asc" },
   });
 

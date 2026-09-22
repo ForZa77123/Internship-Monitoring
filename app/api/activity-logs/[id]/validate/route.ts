@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ValidationStatus } from "@prisma/client";
 
 /**
  * PATCH /api/activity-logs/[id]/validate
@@ -15,8 +16,9 @@ import { prisma } from "@/lib/prisma";
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const session = await auth();
 
   if (!session || session.user.role !== "ADMIN") {
@@ -44,7 +46,7 @@ export async function PATCH(
   }
 
   const log = await prisma.activityLog.findUnique({
-    where: { id: params.id },
+    where: { id },
   });
 
   if (!log) {
@@ -55,12 +57,13 @@ export async function PATCH(
   }
 
   const updated = await prisma.activityLog.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       isValidated: true,
-      validationStatus: action,
-      validationNote: note ?? null,
+      validationStatus: action as ValidationStatus,
+      validationNote: note?.trim() || null,
       validatedAt: new Date(),
+      validatedById: session.user.id,
     },
   });
 

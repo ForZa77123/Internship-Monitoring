@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
@@ -23,6 +24,11 @@ enum PresenceStatus {
   AWAY
 }
 
+enum ValidationStatus {
+  APPROVED
+  REJECTED
+}
+
 // ─── Models ──────────────────────────────────────────────────────────────────
 
 model User {
@@ -31,8 +37,10 @@ model User {
   email        String        @unique
   password     String
   role         Role          @default(INTERN)
+  department   String?       // Intern specialization (UI/UX, Front End, etc.)
   presenceLogs PresenceLog[]
   activityLogs ActivityLog[]
+  validatedLogs ActivityLog[] @relation("ValidatedActivities")
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
@@ -60,9 +68,11 @@ model ActivityLog {
   endTime     DateTime
   isValidated Boolean  @default(false)
   // ADMIN can approve or reject a log with an optional note
-  validationStatus String? // "APPROVED" | "REJECTED" | null
+  validationStatus ValidationStatus?
   validationNote   String? @db.Text
   validatedAt      DateTime?
+  validatedById    String?
+  validatedBy      User?    @relation("ValidatedActivities", fields: [validatedById], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

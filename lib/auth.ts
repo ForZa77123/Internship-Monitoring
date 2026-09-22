@@ -28,7 +28,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
 
         if (!user) {
-          throw new Error("Email tidak ditemukan.");
+          throw new Error("Email atau password salah.");
         }
 
         const isPasswordValid = await bcrypt.compare(
@@ -37,7 +37,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         );
 
         if (!isPasswordValid) {
-          throw new Error("Password salah.");
+          throw new Error("Email atau password salah.");
         }
 
         return {

@@ -16,7 +16,8 @@ export default async function AdminLayout({
   return (
     <div className="flex min-h-screen">
       <AdminSidebar adminName={session.user.name ?? "Admin"} />
-      <main className="flex-1 overflow-auto">
+      {/* pt-14 on mobile for the fixed header bar, lg:pt-0 resets on desktop */}
+      <main className="flex-1 overflow-auto pt-14 lg:pt-0">
         {children}
       </main>
     </div>

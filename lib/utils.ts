@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { differenceInMinutes, startOfDay, endOfDay } from "date-fns";
+import { differenceInMinutes } from "date-fns";
 import type { PresenceLog } from "@prisma/client";
 
 export function cn(...inputs: ClassValue[]) {
@@ -11,10 +11,9 @@ export function cn(...inputs: ClassValue[]) {
  * Calculate total ACTIVE minutes from an array of PresenceLogs for a given day.
  * Logic: Consecutive log entries where status is ACTIVE are counted as productive.
  */
-export function calculateProductiveMinutes(logs: PresenceLog[]): number {
+export function calculateProductiveMinutes(logs: PresenceLog[], endOfWindow?: Date): number {
   if (!logs || logs.length === 0) return 0;
 
-  // Sort by timestamp ascending
   const sorted = [...logs].sort(
     (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
   );
@@ -26,11 +25,24 @@ export function calculateProductiveMinutes(logs: PresenceLog[]): number {
     const next = sorted[i + 1];
 
     if (current.status === "ACTIVE") {
-      const minutes = differenceInMinutes(
-        new Date(next.timestamp),
-        new Date(current.timestamp)
-      );
+      let nextTime = new Date(next.timestamp);
+      const gap = differenceInMinutes(nextTime, new Date(current.timestamp));
+      
+      if (gap > 15) {
+        nextTime = new Date(new Date(current.timestamp).getTime() + 15 * 60 * 1000);
+      }
+
+      const minutes = differenceInMinutes(nextTime, new Date(current.timestamp));
       totalMinutes += minutes;
+    }
+  }
+
+  if (sorted.length > 0 && sorted[sorted.length - 1].status === "ACTIVE") {
+    const lastActive = new Date(sorted[sorted.length - 1].timestamp);
+    const capTime = endOfWindow || new Date(lastActive.getTime() + 15 * 60 * 1000);
+    const gap = differenceInMinutes(capTime, lastActive);
+    if (gap > 0 && gap <= 15) {
+      totalMinutes += gap;
     }
   }
 
@@ -63,27 +75,38 @@ export function calculateDiscrepancy(
     new Date(activityStart)
   );
 
-  // Filter presence logs within the activity timeframe
-  const relevantLogs = presenceLogs
-    .filter(
-      (log) =>
-        new Date(log.timestamp) >= new Date(activityStart) &&
-        new Date(log.timestamp) <= new Date(activityEnd)
-    )
-    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  if (!presenceLogs || presenceLogs.length === 0) {
+    return { activityMinutes, activePresenceMinutes: 0, discrepancyMinutes: activityMinutes, hasFlaggedDiscrepancy: activityMinutes > 30 };
+  }
+
+  const sorted = [...presenceLogs].sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
 
   let activePresenceMinutes = 0;
-  for (let i = 0; i < relevantLogs.length - 1; i++) {
-    if (relevantLogs[i].status === "ACTIVE") {
-      activePresenceMinutes += differenceInMinutes(
-        new Date(relevantLogs[i + 1].timestamp),
-        new Date(relevantLogs[i].timestamp)
-      );
+
+  for (let i = 0; i < sorted.length; i++) {
+    const log = sorted[i];
+    if (log.status !== "ACTIVE") continue;
+
+    const logTime = new Date(log.timestamp);
+    let activeEnd = i < sorted.length - 1
+      ? new Date(sorted[i + 1].timestamp)
+      : new Date(logTime.getTime() + 15 * 60 * 1000);
+
+    if (logTime > new Date(activityEnd)) break;
+
+    if (activeEnd < new Date(activityStart)) continue;
+
+    const overlapStart = logTime > new Date(activityStart) ? logTime : new Date(activityStart);
+    const overlapEnd = activeEnd < new Date(activityEnd) ? activeEnd : new Date(activityEnd);
+
+    if (overlapStart < overlapEnd) {
+      activePresenceMinutes += differenceInMinutes(overlapEnd, overlapStart);
     }
   }
 
   const discrepancyMinutes = activityMinutes - activePresenceMinutes;
-  // Flag if intern claimed more than 30 minutes of work but was actually active < 50% of that time
   const hasFlaggedDiscrepancy =
     activityMinutes > 30 && activePresenceMinutes < activityMinutes * 0.5;
 
