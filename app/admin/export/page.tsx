@@ -92,7 +92,7 @@ export default function ExportPage() {
         res.headers
           .get("Content-Disposition")
           ?.split("filename=")[1]
-          ?.replace(/"/g, "") ?? `laporan_${reportType}.csv`;
+          ?.replace(/"/g, "") ?? `laporan_${reportType}.xlsx`;
 
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -126,7 +126,7 @@ export default function ExportPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">Ekspor Laporan</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Unduh rekapitulasi data dalam format CSV
+          Unduh rekapitulasi data dalam format Excel (.xlsx)
         </p>
       </div>
 

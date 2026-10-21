@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { startOfDay, endOfDay } from "date-fns";
 
 /**
  * GET /api/interns/[id]/presence
@@ -40,10 +39,18 @@ export async function GET(
   }
 
   const { searchParams } = new URL(request.url);
-  const dateParam = searchParams.get("date");
-  const targetDate = dateParam ? new Date(dateParam) : new Date();
+  const dateParam =
+    searchParams.get("date") ?? new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
 
-  if (isNaN(targetDate.getTime())) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+    return NextResponse.json({ error: "Invalid date." }, { status: 400 });
+  }
+
+  // ponytail: batas hari fixed Asia/Jakarta (UTC+7, tanpa DST), ganti ke Intl timezone jika multi-zona
+  const dayStart = new Date(`${dateParam}T00:00:00+07:00`);
+  const dayEnd = new Date(`${dateParam}T23:59:59.999+07:00`);
+
+  if (isNaN(dayStart.getTime())) {
     return NextResponse.json({ error: "Invalid date." }, { status: 400 });
   }
 
@@ -53,8 +60,8 @@ export async function GET(
   const where = {
     userId: id,
     timestamp: {
-      gte: startOfDay(targetDate),
-      lte: endOfDay(targetDate),
+      gte: dayStart,
+      lte: dayEnd,
     },
   };
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { LayoutDashboard, History, LogOut, GraduationCap, Settings, ChevronRight } from "lucide-react";
+import { LayoutDashboard, History, LogOut, GraduationCap, Settings, ChevronRight, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -21,6 +21,12 @@ const navItems = [
     label: "Riwayat Kehadiran",
     icon: History,
     id: "nav-intern-history",
+  },
+  {
+    href: "/dashboard/export",
+    label: "Ekspor Laporan",
+    icon: Download,
+    id: "nav-intern-export",
   },
   {
     href: "/dashboard/profile",
