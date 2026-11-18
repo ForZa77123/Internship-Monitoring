@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -41,7 +42,12 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 
-  let body: { department?: string; name?: string };
+  let body: {
+    department?: string;
+    name?: string;
+    currentPassword?: string;
+    newPassword?: string;
+  };
 
   try {
     body = await request.json();
@@ -66,6 +72,38 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: "Departemen terlalu panjang." }, { status: 400 });
       }
       updateData.department = cleanDept || null;
+    }
+
+    if (body.newPassword) {
+      if (!body.currentPassword) {
+        return NextResponse.json(
+          { error: "Password lama wajib diisi untuk mengubah password." },
+          { status: 400 }
+        );
+      }
+      const cleanNewPassword = String(body.newPassword);
+      if (cleanNewPassword.length < 8 || cleanNewPassword.length > 128) {
+        return NextResponse.json(
+          { error: "Password baru harus 8-128 karakter." },
+          { status: 400 }
+        );
+      }
+
+      const currentUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { password: true },
+      });
+
+      if (!currentUser) {
+        return NextResponse.json({ error: "User tidak ditemukan." }, { status: 404 });
+      }
+
+      const isValid = await bcrypt.compare(String(body.currentPassword), currentUser.password);
+      if (!isValid) {
+        return NextResponse.json({ error: "Password lama tidak sesuai." }, { status: 400 });
+      }
+
+      updateData.password = await bcrypt.hash(cleanNewPassword, 12);
     }
 
     if (Object.keys(updateData).length === 0) {

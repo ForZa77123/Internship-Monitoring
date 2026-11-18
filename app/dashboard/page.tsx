@@ -15,6 +15,7 @@ import {
   ClipboardList,
   ChevronLeft,
   ChevronRight,
+  Trash2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -80,6 +81,7 @@ export default function InternDashboardPage() {
   const [successMessage, setSuccessMessage] = useState("");
 
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
+  const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
 
   const nowString = format(new Date(), "yyyy-MM-dd'T'HH:mm");
 
@@ -101,6 +103,22 @@ export default function InternDashboardPage() {
     setEditingLogId(log.id);
     setFormError("");
     setIsFormOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    setDeletingLogId(id);
+    try {
+      const res = await fetch(`/api/activity-logs?id=${id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setSuccessMessage("Logsheet berhasil dihapus.");
+        setTimeout(() => setSuccessMessage(""), 3000);
+        mutate();
+      }
+    } finally {
+      setDeletingLogId(null);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -407,6 +425,34 @@ export default function InternDashboardPage() {
                       <RotateCcw className="w-3.5 h-3.5" />
                       Revisi
                     </Button>
+                  )}
+
+                  {!log.isValidated && (
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Button
+                        id={`edit-log-${log.id}`}
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => openRevisionForm(log)}
+                        disabled={isFormOpen}
+                      >
+                        <PenSquare className="w-3.5 h-3.5" />
+                        Edit
+                      </Button>
+                      <Button
+                        id={`delete-log-${log.id}`}
+                        variant="danger"
+                        size="sm"
+                        disabled={deletingLogId === log.id}
+                        onClick={() => handleDelete(log.id)}
+                      >
+                        {deletingLogId === log.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-3.5 h-3.5" />
+                        )}
+                      </Button>
+                    </div>
                   )}
                 </div>
               );

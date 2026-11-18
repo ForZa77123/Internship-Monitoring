@@ -20,11 +20,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatProductiveTime, calculateDiscrepancy } from "@/lib/utils";
 
-interface PresenceLog {
-  id: string;
-  userId: string;
-  status: "ACTIVE" | "IDLE" | "AWAY";
-  timestamp: string;
+interface DiscrepancyResult {
+  activityMinutes: number;
+  activePresenceMinutes: number;
+  discrepancyMinutes: number;
+  hasFlaggedDiscrepancy: boolean;
 }
 
 interface ActivityLog {
@@ -38,10 +38,12 @@ interface ActivityLog {
   validationStatus: "APPROVED" | "REJECTED" | null;
   validationNote: string | null;
   validatedAt: string | null;
+  discrepancy?: DiscrepancyResult;
   user: {
     id: string;
     name: string;
     email: string;
+    department?: string | null;
   };
 }
 
@@ -54,33 +56,22 @@ interface PaginationMeta {
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
-function ValidationRow({ log }: { log: ActivityLog }) {
+function ValidationRow({ log, onValidated }: { log: ActivityLog; onValidated: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const [note, setNote] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [localStatus, setLocalStatus] = useState(log.validationStatus);
-
-  const { data: presenceData } = useSWR<{ data: PresenceLog[] }>(
-    `/api/interns/${log.userId}/presence?date=${format(new Date(log.startTime), "yyyy-MM-dd")}`,
-    fetcher
-  );
-
-  const presenceLogs: PresenceLog[] = presenceData?.data ?? [];
 
   const activityMinutes = differenceInMinutes(
     new Date(log.endTime),
     new Date(log.startTime)
   );
 
-  const discrepancy = presenceLogs.length > 0
-    ? calculateDiscrepancy(
-        new Date(log.startTime),
-        new Date(log.endTime),
-        presenceLogs as any
-      )
-    : null;
+  const discrepancy =
+    log.discrepancy ??
+    calculateDiscrepancy(new Date(log.startTime), new Date(log.endTime), []);
 
-  const hasFlaggedDiscrepancy = discrepancy?.hasFlaggedDiscrepancy ?? false;
+  const hasFlaggedDiscrepancy = discrepancy.hasFlaggedDiscrepancy;
 
   const handleValidate = async (action: "APPROVED" | "REJECTED") => {
     setIsLoading(true);
@@ -94,6 +85,7 @@ function ValidationRow({ log }: { log: ActivityLog }) {
       if (res.ok) {
         setLocalStatus(action);
         setExpanded(false);
+        onValidated();
       }
     } finally {
       setIsLoading(false);
@@ -130,6 +122,11 @@ function ValidationRow({ log }: { log: ActivityLog }) {
             <span className="font-semibold text-sm text-foreground">
               {log.user.name}
             </span>
+            {log.user.department && (
+              <Badge variant="outline" className="text-[10px] py-0">
+                {log.user.department}
+              </Badge>
+            )}
             <span className="text-muted-foreground/50 text-xs">|</span>
             <span className="text-sm text-foreground truncate">
               {log.taskTitle}
@@ -397,7 +394,7 @@ export default function ValidationPage() {
             ) : (
               <div className="space-y-2.5">
                 {logs.map((log) => (
-                  <ValidationRow key={log.id} log={log} />
+                  <ValidationRow key={log.id} log={log} onValidated={() => mutate()} />
                 ))}
               </div>
             )}

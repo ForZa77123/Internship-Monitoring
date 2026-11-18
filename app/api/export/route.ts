@@ -1,14 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { calculateProductiveMinutes } from "@/lib/utils";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import ExcelJS from "exceljs";
 
-function parseDate(value: string | null): Date | null {
+function parseWIBDate(value: string | null, isEnd: boolean): Date | null {
   if (!value) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const d = new Date(`${value}T${isEnd ? "23:59:59.999" : "00:00:00"}+07:00`);
+    return isNaN(d.getTime()) ? null : d;
+  }
   const date = new Date(value);
-  return isNaN(date.getTime()) ? null : date;
+  if (isNaN(date.getTime())) return null;
+  if (isEnd) date.setHours(23, 59, 59, 999);
+  return date;
 }
 
 function statusPresenceLabel(status: string): string {
@@ -139,18 +146,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Invalid export type." }, { status: 400 });
   }
 
-  const startDate = parseDate(startDateStr);
-  const endDate = parseDate(endDateStr);
+  const startDate = parseWIBDate(startDateStr, false);
+  const endDate = parseWIBDate(endDateStr, true);
   if ((startDateStr && !startDate) || (endDateStr && !endDate)) {
     return NextResponse.json({ error: "Invalid date." }, { status: 400 });
   }
 
   const dateFilter: Record<string, Date> = {};
   if (startDate) dateFilter.gte = startDate;
-  if (endDate) {
-    endDate.setHours(23, 59, 59, 999);
-    dateFilter.lte = endDate;
-  }
+  if (endDate) dateFilter.lte = endDate;
 
   try {
     if (type === "presence") {
@@ -278,6 +282,7 @@ async function exportSummary(
       id: true,
       name: true,
       email: true,
+      department: true,
       presenceLogs: {
         where: Object.keys(dateFilter).length > 0 ? { timestamp: dateFilter } : undefined,
         orderBy: { timestamp: "asc" },
@@ -293,6 +298,7 @@ async function exportSummary(
     "No",
     "Nama Peserta",
     "Email",
+    "Divisi",
     "Total Log Kehadiran",
     "Log Aktif",
     "Log Idle",
@@ -301,6 +307,7 @@ async function exportSummary(
     "Disetujui",
     "Ditolak",
     "Menunggu",
+    "Total Jam Produktif (AI)",
     "Total Jam Diklaim",
   ];
   const rows: (string | number)[][] = interns.map((intern, i) => {
@@ -316,6 +323,8 @@ async function exportSummary(
     ).length;
     const pendingCount = intern.activityLogs.filter((l) => !l.validationStatus).length;
 
+    const productiveMinutesAI = calculateProductiveMinutes(intern.presenceLogs);
+
     const totalClaimedMinutes = intern.activityLogs.reduce((sum, l) => {
       return (
         sum +
@@ -329,6 +338,7 @@ async function exportSummary(
       i + 1,
       intern.name,
       intern.email,
+      intern.department ?? "-",
       intern.presenceLogs.length,
       activeCount,
       idleCount,
@@ -337,6 +347,7 @@ async function exportSummary(
       approvedCount,
       rejectedCount,
       pendingCount,
+      `${(productiveMinutesAI / 60).toFixed(1)} jam`,
       `${(totalClaimedMinutes / 60).toFixed(1)} jam`,
     ];
   });

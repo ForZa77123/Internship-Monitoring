@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimit, clearRateLimit } from "@/lib/rate-limit";
 import bcrypt from "bcryptjs";
 import type { Role } from "@prisma/client";
 
@@ -23,8 +24,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           throw new Error("Email dan password harus diisi.");
         }
 
+        const emailKey = String(credentials.email).trim().toLowerCase();
+        if (!checkRateLimit(`login:${emailKey}`, 10, 5 * 60_000)) {
+          throw new Error("Terlalu banyak percobaan login. Silakan tunggu 5 menit.");
+        }
+
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
+          where: { email: emailKey },
         });
 
         if (!user) {
@@ -39,6 +45,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!isPasswordValid) {
           throw new Error("Email atau password salah.");
         }
+
+        clearRateLimit(`login:${emailKey}`);
 
         return {
           id: user.id,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getWIBDateString, getWIBDayBounds } from "@/lib/utils";
 
 /**
  * GET /api/interns/[id]/presence
@@ -39,16 +40,13 @@ export async function GET(
   }
 
   const { searchParams } = new URL(request.url);
-  const dateParam =
-    searchParams.get("date") ?? new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
+  const dateParam = searchParams.get("date") ?? getWIBDateString();
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
     return NextResponse.json({ error: "Invalid date." }, { status: 400 });
   }
 
-  // ponytail: batas hari fixed Asia/Jakarta (UTC+7, tanpa DST), ganti ke Intl timezone jika multi-zona
-  const dayStart = new Date(`${dateParam}T00:00:00+07:00`);
-  const dayEnd = new Date(`${dateParam}T23:59:59.999+07:00`);
+  const { dayStart, dayEnd } = getWIBDayBounds(dateParam);
 
   if (isNaN(dayStart.getTime())) {
     return NextResponse.json({ error: "Invalid date." }, { status: 400 });

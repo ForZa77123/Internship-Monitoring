@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import useSWR from "swr";
-import { User, Settings, Save, Loader2, CheckCircle2, XCircle, Briefcase } from "lucide-react";
+import { User, Settings, Save, Loader2, CheckCircle2, XCircle, Briefcase, KeyRound } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,8 @@ export default function InternProfilePage() {
   const [formName, setFormName] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [customDepartment, setCustomDepartment] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
@@ -80,16 +82,33 @@ export default function InternProfilePage() {
       finalDepartment = customDepartment.trim();
     }
 
+    if (newPassword) {
+      if (!currentPassword) {
+        setErrorMessage("Masukkan password lama untuk mengubah password.");
+        return;
+      }
+      if (newPassword.length < 8) {
+        setErrorMessage("Password baru minimal 8 karakter.");
+        return;
+      }
+    }
+
     setIsSubmitting(true);
 
     try {
+      const payload: Record<string, string> = {
+        name: formName,
+        department: finalDepartment,
+      };
+      if (newPassword) {
+        payload.currentPassword = currentPassword;
+        payload.newPassword = newPassword;
+      }
+
       const res = await fetch("/api/interns/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: formName,
-          department: finalDepartment,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -98,6 +117,8 @@ export default function InternProfilePage() {
         return;
       }
 
+      setCurrentPassword("");
+      setNewPassword("");
       setSuccessMessage("Profil berhasil diperbarui!");
       setTimeout(() => setSuccessMessage(""), 3000);
       mutate();
@@ -212,6 +233,39 @@ export default function InternProfilePage() {
                 />
               </div>
             )}
+
+            <div className="pt-4 border-t border-border/50 space-y-4">
+              <div className="flex items-center gap-2 text-xs font-semibold text-foreground uppercase tracking-wider">
+                <KeyRound className="w-3.5 h-3.5 text-primary" />
+                Ubah Kata Sandi (Opsional)
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label htmlFor="current-password" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Password Lama
+                  </label>
+                  <Input
+                    id="current-password"
+                    type="password"
+                    placeholder="Kosongkan jika tidak diubah"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="new-password" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Password Baru
+                  </label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    placeholder="Minimal 8 karakter"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
 
             <div className="pt-2">
               <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto gap-2">

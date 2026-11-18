@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { PresenceStatus } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 interface RawAILog {
   timestamp: string;
@@ -17,8 +18,8 @@ function mapStatus(state?: string, status?: string): PresenceStatus {
   return PresenceStatus.AWAY;
 }
 
-export async function syncAILogs(targetUrl?: string): Promise<{ inserted: number; skipped: number; total: number }> {
-  const url = targetUrl || process.env.AI_LOGS_URL || "http://192.168.8.186:5000/api/logs";
+export async function syncAILogs(): Promise<{ inserted: number; skipped: number; total: number }> {
+  const url = process.env.AI_LOGS_URL || "http://192.168.8.186:5000/api/logs";
 
   let rawLogs: RawAILog[] = [];
   try {
@@ -29,9 +30,13 @@ export async function syncAILogs(targetUrl?: string): Promise<{ inserted: number
     return { inserted: 0, skipped: 0, total: 0 };
   }
 
-  const users = await prisma.user.findMany({ select: { id: true, name: true } });
+  const users = await prisma.user.findMany({
+    where: { role: "INTERN" },
+    select: { id: true, name: true },
+  });
   let inserted = 0;
   let skipped = 0;
+  let defaultHashedPassword: string | null = null;
 
   for (const item of rawLogs) {
     if (!item.personnel_id || !item.timestamp) {
@@ -40,15 +45,32 @@ export async function syncAILogs(targetUrl?: string): Promise<{ inserted: number
     }
 
     const cleanName = item.personnel_id.replace(/^\d+_/, "").replace(/_/g, " ").trim();
-    let user = users.find(
-      (u) => u.id === item.personnel_id || u.name.toLowerCase().includes(cleanName.toLowerCase())
-    );
+    if (!cleanName) {
+      skipped++;
+      continue;
+    }
+
+    const normalizedTarget = cleanName.toLowerCase();
+    let user =
+      users.find((u) => u.id === item.personnel_id) ||
+      users.find((u) => u.name.trim().toLowerCase() === normalizedTarget) ||
+      (normalizedTarget.length >= 3
+        ? users.find((u) => u.name.toLowerCase().includes(normalizedTarget))
+        : undefined);
 
     if (!user) {
-      const email = `${cleanName.toLowerCase().replace(/\s+/g, ".")}@intern.com`;
+      const email = `${ normalizedTarget.replace(/\s+/g, ".")}@intern.com`;
       try {
+        if (!defaultHashedPassword) {
+          defaultHashedPassword = await bcrypt.hash("password123", 12);
+        }
         user = await prisma.user.create({
-          data: { name: cleanName, email, password: "auto-generated", role: "INTERN" },
+          data: {
+            name: cleanName,
+            email,
+            password: defaultHashedPassword,
+            role: "INTERN",
+          },
           select: { id: true, name: true },
         });
         users.push(user);

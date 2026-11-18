@@ -57,10 +57,12 @@ cp .env.example .env
 Edit `.env` with your values:
 
 ```env
-DATABASE_URL="postgresql://..."      # Supabase or local PostgreSQL URI
+DATABASE_URL="postgresql://..."      # Supabase Transaction Pooler or local PostgreSQL URI
+DIRECT_URL="postgresql://..."        # Direct PostgreSQL connection for Prisma migrations
 NEXTAUTH_SECRET="..."                # Generate: openssl rand -base64 32
 NEXTAUTH_URL="http://localhost:3000"
-PRESENCE_API_SECRET="..."           # Shared secret for the face recognition webhook
+PRESENCE_API_SECRET="..."            # Shared secret for the face recognition webhook
+AI_LOGS_URL="http://192.168.8.186:5000/api/logs" # External AI camera logs endpoint
 ```
 
 ### 4. Set up the database

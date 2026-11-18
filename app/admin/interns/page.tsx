@@ -26,6 +26,7 @@ interface Intern {
   id: string;
   name: string;
   email: string;
+  department?: string | null;
   role: string;
   createdAt: string;
 }
@@ -47,6 +48,7 @@ export default function ManageInternsPage() {
 
   const [formName, setFormName] = useState("");
   const [formEmail, setFormEmail] = useState("");
+  const [formDepartment, setFormDepartment] = useState("");
   const [formPassword, setFormPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState("");
@@ -59,12 +61,14 @@ export default function ManageInternsPage() {
   const filteredInterns = interns.filter(
     (intern) =>
       intern.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      intern.email.toLowerCase().includes(searchQuery.toLowerCase())
+      intern.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (intern.department ?? "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const resetForm = () => {
     setFormName("");
     setFormEmail("");
+    setFormDepartment("");
     setFormPassword("");
     setFormError("");
     setIsFormOpen(false);
@@ -80,6 +84,7 @@ export default function ManageInternsPage() {
   const openEditForm = (intern: Intern) => {
     setFormName(intern.name);
     setFormEmail(intern.email);
+    setFormDepartment(intern.department ?? "");
     setFormPassword("");
     setFormError("");
     setEditingIntern(intern);
@@ -101,8 +106,8 @@ export default function ManageInternsPage() {
       return;
     }
 
-    if (formPassword && formPassword.length < 6) {
-      setFormError("Password minimal 6 karakter.");
+    if (formPassword && formPassword.length < 8) {
+      setFormError("Password minimal 8 karakter.");
       return;
     }
 
@@ -114,6 +119,7 @@ export default function ManageInternsPage() {
           id: editingIntern.id,
           name: formName,
           email: formEmail,
+          department: formDepartment,
         };
         if (formPassword) payload.password = formPassword;
 
@@ -137,6 +143,7 @@ export default function ManageInternsPage() {
           body: JSON.stringify({
             name: formName,
             email: formEmail,
+            department: formDepartment,
             password: formPassword,
           }),
         });
@@ -245,28 +252,42 @@ export default function ManageInternsPage() {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label htmlFor="intern-password" className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                  <KeyRound className="w-3 h-3" />
-                  {editingIntern ? "Password Baru (opsional)" : "Password"}
-                  {!editingIntern && <span className="text-destructive">*</span>}
-                </label>
-                <div className="relative">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label htmlFor="intern-department" className="text-xs font-semibold text-foreground">
+                    Divisi / Bagian (opsional)
+                  </label>
                   <Input
-                    id="intern-password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder={editingIntern ? "Kosongkan jika tidak diubah" : "Minimal 6 karakter"}
-                    value={formPassword}
-                    onChange={(e) => setFormPassword(e.target.value)}
-                    required={!editingIntern}
+                    id="intern-department"
+                    placeholder="UI/UX, Front End, Back End, Data Analyst, AI..."
+                    value={formDepartment}
+                    onChange={(e) => setFormDepartment(e.target.value)}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="intern-password" className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                    <KeyRound className="w-3 h-3" />
+                    {editingIntern ? "Password Baru (opsional)" : "Password"}
+                    {!editingIntern && <span className="text-destructive">*</span>}
+                  </label>
+                  <div className="relative">
+                    <Input
+                      id="intern-password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder={editingIntern ? "Kosongkan jika tidak diubah" : "Minimal 8 karakter"}
+                      value={formPassword}
+                      onChange={(e) => setFormPassword(e.target.value)}
+                      required={!editingIntern}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -347,11 +368,14 @@ export default function ManageInternsPage() {
               </div>
 
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-semibold text-foreground text-sm truncate">
                     {intern.name}
                   </span>
                   <Badge variant="outline">INTERN</Badge>
+                  {intern.department && (
+                    <Badge variant="secondary">{intern.department}</Badge>
+                  )}
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-xs text-muted-foreground mt-0.5">
                   <span>{intern.email}</span>

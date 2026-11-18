@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { calculateProductiveMinutes } from "@/lib/utils";
-import { startOfDay, endOfDay } from "date-fns";
+import { calculateProductiveMinutes, getWIBDayBounds } from "@/lib/utils";
 
 /**
  * GET /api/interns
  *
  * Returns all interns with:
- * - Their latest presence status (from today's logs)
+ * - Their latest presence status (from today's logs in WIB)
  * - Today's total productive (ACTIVE) time in minutes
  *
  * Protected: ADMIN only.
@@ -20,9 +19,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 
-  const today = new Date();
-  const dayStart = startOfDay(today);
-  const dayEnd = endOfDay(today);
+  const { dayStart, dayEnd } = getWIBDayBounds();
+  const now = new Date();
 
   const interns = await prisma.user.findMany({
     where: { role: "INTERN" },
@@ -30,6 +28,7 @@ export async function GET(request: NextRequest) {
       id: true,
       name: true,
       email: true,
+      department: true,
       presenceLogs: {
         where: {
           timestamp: {
@@ -46,14 +45,15 @@ export async function GET(request: NextRequest) {
   const result = interns.map((intern) => {
     const latestLog = intern.presenceLogs[0] ?? null;
     const productiveMinutes = calculateProductiveMinutes(
-      // Reverse to get ascending order for calculation
-      [...intern.presenceLogs].reverse()
+      [...intern.presenceLogs].reverse(),
+      now
     );
 
     return {
       id: intern.id,
       name: intern.name,
       email: intern.email,
+      department: intern.department,
       currentStatus: latestLog?.status ?? "UNKNOWN",
       lastSeen: latestLog?.timestamp ?? null,
       productiveMinutesToday: productiveMinutes,

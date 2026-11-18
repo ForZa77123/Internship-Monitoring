@@ -16,12 +16,14 @@ import {
   Pause,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { LiveCameraFeed } from "@/components/admin/LiveCameraFeed";
 import { formatProductiveTime } from "@/lib/utils";
 
 interface InternStatus {
   id: string;
   name: string;
   email: string;
+  department?: string | null;
   currentStatus: "ACTIVE" | "IDLE" | "AWAY" | "UNKNOWN";
   lastSeen: string | null;
   productiveMinutesToday: number;
@@ -78,6 +80,11 @@ function InternStatusCard({ intern, index }: { intern: InternStatus; index: numb
           <div>
             <p className="font-semibold text-foreground text-sm">{intern.name}</p>
             <p className="text-xs text-muted-foreground">{intern.email}</p>
+            {intern.department && (
+              <span className="inline-block mt-1 text-[10px] font-medium px-2 py-0.5 rounded bg-primary/10 text-primary">
+                {intern.department}
+              </span>
+            )}
           </div>
         </div>
         <Badge variant={getStatusBadgeVariant(intern.currentStatus)}>
@@ -243,6 +250,8 @@ export default function AdminDashboardPage() {
       {!isLoading && !error && (
         <>
           <SummaryStats interns={interns} />
+
+          <LiveCameraFeed />
 
           {interns.length === 0 ? (
             <div className="rounded-lg border border-border bg-card p-12 text-center">

@@ -30,7 +30,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 
-  let body: { name?: string; email?: string; password?: string };
+  if (!checkRateLimit(`manage:${session.user.id}`, 30, 60_000)) {
+    return NextResponse.json({ error: "Terlalu banyak permintaan. Coba lagi nanti." }, { status: 429 });
+  }
+
+  let body: { name?: string; email?: string; password?: string; department?: string };
 
   try {
     body = await request.json();
@@ -38,11 +42,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const { name, email, password } = body;
+  const { name, email, password, department } = body;
 
   const cleanName = sanitizeString(name);
   const cleanEmail = sanitizeString(email).toLowerCase();
   const cleanPassword = String(password ?? "");
+  const cleanDept = sanitizeString(department);
 
   if (!cleanName || !cleanEmail || !cleanPassword) {
     return NextResponse.json(
@@ -53,6 +58,10 @@ export async function POST(request: NextRequest) {
 
   if (cleanName.length > 100) {
     return NextResponse.json({ error: "Nama terlalu panjang." }, { status: 400 });
+  }
+
+  if (cleanDept.length > 100) {
+    return NextResponse.json({ error: "Departemen terlalu panjang." }, { status: 400 });
   }
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail) || cleanEmail.length > 254) {
@@ -81,9 +90,10 @@ export async function POST(request: NextRequest) {
       name: cleanName,
       email: cleanEmail,
       password: hashedPassword,
+      department: cleanDept || null,
       role: "INTERN",
     },
-    select: { id: true, name: true, email: true, role: true, createdAt: true },
+    select: { id: true, name: true, email: true, department: true, role: true, createdAt: true },
   });
 
   return NextResponse.json(
@@ -99,7 +109,11 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 
-  let body: { id?: string; name?: string; email?: string; password?: string };
+  if (!checkRateLimit(`manage:${session.user.id}`, 30, 60_000)) {
+    return NextResponse.json({ error: "Terlalu banyak permintaan. Coba lagi nanti." }, { status: 429 });
+  }
+
+  let body: { id?: string; name?: string; email?: string; password?: string; department?: string };
 
   try {
     body = await request.json();
@@ -107,7 +121,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const { id, name, email, password } = body;
+  const { id, name, email, password, department } = body;
 
   if (!id) {
     return NextResponse.json({ error: "id is required." }, { status: 400 });
@@ -148,6 +162,14 @@ export async function PATCH(request: NextRequest) {
     updateData.email = cleanEmail;
   }
 
+  if (department !== undefined) {
+    const cleanDept = sanitizeString(department);
+    if (cleanDept.length > 100) {
+      return NextResponse.json({ error: "Departemen terlalu panjang." }, { status: 400 });
+    }
+    updateData.department = cleanDept || null;
+  }
+
   if (password !== undefined) {
     const cleanPassword = String(password);
     if (!validatePassword(cleanPassword)) {
@@ -162,7 +184,7 @@ export async function PATCH(request: NextRequest) {
   const updated = await prisma.user.update({
     where: { id },
     data: updateData,
-    select: { id: true, name: true, email: true, role: true, createdAt: true },
+    select: { id: true, name: true, email: true, department: true, role: true, createdAt: true },
   });
 
   return NextResponse.json({
@@ -176,6 +198,10 @@ export async function DELETE(request: NextRequest) {
 
   if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
+
+  if (!checkRateLimit(`manage:${session.user.id}`, 30, 60_000)) {
+    return NextResponse.json({ error: "Terlalu banyak permintaan. Coba lagi nanti." }, { status: 429 });
   }
 
   const { searchParams } = new URL(request.url);

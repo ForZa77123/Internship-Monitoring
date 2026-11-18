@@ -8,10 +8,34 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Returns YYYY-MM-DD in Asia/Jakarta (UTC+7).
+ */
+export function getWIBDateString(date: Date = new Date()): string {
+  return new Date(date.getTime() + 7 * 3600_000).toISOString().slice(0, 10);
+}
+
+/**
+ * Returns start and end of day in Asia/Jakarta (UTC+7) for a given YYYY-MM-DD string (defaults to today in WIB).
+ */
+export function getWIBDayBounds(dateStr?: string): {
+  dateStr: string;
+  dayStart: Date;
+  dayEnd: Date;
+} {
+  const targetDate = dateStr ?? getWIBDateString();
+  const dayStart = new Date(`${targetDate}T00:00:00+07:00`);
+  const dayEnd = new Date(`${targetDate}T23:59:59.999+07:00`);
+  return { dateStr: targetDate, dayStart, dayEnd };
+}
+
+/**
  * Calculate total ACTIVE minutes from an array of PresenceLogs for a given day.
  * Logic: Consecutive log entries where status is ACTIVE are counted as productive.
  */
-export function calculateProductiveMinutes(logs: PresenceLog[], endOfWindow?: Date): number {
+export function calculateProductiveMinutes(
+  logs: PresenceLog[],
+  endOfWindow: Date = new Date()
+): number {
   if (!logs || logs.length === 0) return 0;
 
   const sorted = [...logs].sort(

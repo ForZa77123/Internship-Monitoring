@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { calculateDiscrepancy } from "@/lib/utils";
 
 /**
  * GET /api/activity-logs
- * - ADMIN: returns all activity logs with user info.
+ * - ADMIN: returns all activity logs with user info and precomputed discrepancy.
  * - INTERN: returns only their own activity logs.
  *
  * POST /api/activity-logs
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
     prisma.activityLog.findMany({
       where,
       include: session.user.role === "ADMIN"
-        ? { user: { select: { id: true, name: true, email: true } } }
+        ? { user: { select: { id: true, name: true, email: true, department: true } } }
         : undefined,
       orderBy: { createdAt: "desc" },
       skip,
@@ -53,6 +54,46 @@ export async function GET(request: NextRequest) {
     }),
     prisma.activityLog.count({ where }),
   ]);
+
+  if (session.user.role === "ADMIN" && logs.length > 0) {
+    const userIds = Array.from(new Set(logs.map((l) => l.userId)));
+    const minStart = new Date(
+      Math.min(...logs.map((l) => new Date(l.startTime).getTime())) - 15 * 60_000
+    );
+    const maxEnd = new Date(
+      Math.max(...logs.map((l) => new Date(l.endTime).getTime())) + 15 * 60_000
+    );
+
+    const presenceLogs = await prisma.presenceLog.findMany({
+      where: {
+        userId: { in: userIds },
+        timestamp: { gte: minStart, lte: maxEnd },
+      },
+      orderBy: { timestamp: "asc" },
+    });
+
+    const presenceByUser = new Map<string, typeof presenceLogs>();
+    for (const p of presenceLogs) {
+      const list = presenceByUser.get(p.userId) ?? [];
+      list.push(p);
+      presenceByUser.set(p.userId, list);
+    }
+
+    const enrichedLogs = logs.map((log) => {
+      const userPresence = presenceByUser.get(log.userId) ?? [];
+      const discrepancy = calculateDiscrepancy(
+        new Date(log.startTime),
+        new Date(log.endTime),
+        userPresence
+      );
+      return { ...log, discrepancy };
+    });
+
+    return NextResponse.json({
+      data: enrichedLogs,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
+  }
 
   return NextResponse.json({
     data: logs,
@@ -199,10 +240,10 @@ export async function PUT(request: NextRequest) {
     );
   }
 
-  // Only allow editing REJECTED logs
-  if (existing.validationStatus !== "REJECTED") {
+  // Only allow editing PENDING (!isValidated) or REJECTED logs
+  if (existing.isValidated && existing.validationStatus !== "REJECTED") {
     return NextResponse.json(
-      { error: "Hanya logsheet yang ditolak yang bisa direvisi." },
+      { error: "Hanya logsheet yang masih menunggu atau ditolak yang bisa diubah." },
       { status: 400 }
     );
   }
@@ -265,7 +306,53 @@ export async function PUT(request: NextRequest) {
   });
 
   return NextResponse.json({
-    message: "Logsheet berhasil direvisi dan dikirim ulang.",
+    message: "Logsheet berhasil diperbarui.",
     data: updated,
   });
+}
+
+/**
+ * DELETE /api/activity-logs?id=...
+ * INTERN deletes their own PENDING (!isValidated) activity log.
+ */
+export async function DELETE(request: NextRequest) {
+  const session = await auth();
+
+  if (!session || session.user.role !== "INTERN") {
+    return NextResponse.json(
+      { error: "Forbidden: Only interns can delete their logs." },
+      { status: 403 }
+    );
+  }
+
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get("id");
+
+  if (!id) {
+    return NextResponse.json({ error: "id query parameter is required." }, { status: 400 });
+  }
+
+  const existing = await prisma.activityLog.findUnique({ where: { id } });
+
+  if (!existing) {
+    return NextResponse.json({ error: "Activity log not found." }, { status: 404 });
+  }
+
+  if (existing.userId !== session.user.id) {
+    return NextResponse.json(
+      { error: "Forbidden: You can only delete your own logs." },
+      { status: 403 }
+    );
+  }
+
+  if (existing.isValidated) {
+    return NextResponse.json(
+      { error: "Logsheet yang sudah divalidasi tidak dapat dihapus." },
+      { status: 400 }
+    );
+  }
+
+  await prisma.activityLog.delete({ where: { id } });
+
+  return NextResponse.json({ message: "Logsheet berhasil dihapus." });
 }
