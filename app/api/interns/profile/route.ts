@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { recordUserLog } from "@/lib/user-log";
 import bcrypt from "bcryptjs";
 
 export async function GET(request: NextRequest) {
@@ -119,6 +120,12 @@ export async function PATCH(request: NextRequest) {
         email: true,
         department: true,
       },
+    });
+
+    await recordUserLog({
+      userId: session.user.id,
+      action: "UPDATE_PROFILE",
+      description: `Memperbarui profil pengguna (${updatedUser.name}${updatedUser.department ? ` — Divisi: ${updatedUser.department}` : ""})`,
     });
 
     return NextResponse.json({

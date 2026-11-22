@@ -11,6 +11,7 @@ import {
   UserCog,
   FileDown,
   History,
+  ScrollText,
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -46,6 +47,13 @@ const navItems = [
     description: "Presence per peserta",
     icon: History,
     id: "nav-admin-presence",
+  },
+  {
+    href: "/admin/logs",
+    label: "Log Aktivitas",
+    description: "Riwayat aksi pengguna",
+    icon: ScrollText,
+    id: "nav-admin-logs",
   },
   {
     href: "/admin/export",

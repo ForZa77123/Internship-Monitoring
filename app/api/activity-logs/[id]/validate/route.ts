@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { recordUserLog } from "@/lib/user-log";
 import { ValidationStatus } from "@prisma/client";
 
 /**
@@ -47,6 +48,7 @@ export async function PATCH(
 
   const log = await prisma.activityLog.findUnique({
     where: { id },
+    include: { user: { select: { name: true } } },
   });
 
   if (!log) {
@@ -65,6 +67,12 @@ export async function PATCH(
       validatedAt: new Date(),
       validatedById: session.user.id,
     },
+  });
+
+  await recordUserLog({
+    userId: session.user.id,
+    action: "VALIDATE_LOGSHEET",
+    description: `${action === "APPROVED" ? "Menyetujui (Approve)" : "Menolak (Reject)"} logsheet "${log.taskTitle}" milik ${log.user.name}${note?.trim() ? ` — Catatan: "${note.trim()}"` : ""}`,
   });
 
   return NextResponse.json({

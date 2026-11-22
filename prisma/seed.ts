@@ -7,6 +7,7 @@ async function main() {
   console.log("🌱 Seeding database...");
 
   // Clean existing data
+  await prisma.userLog.deleteMany();
   await prisma.activityLog.deleteMany();
   await prisma.presenceLog.deleteMany();
   await prisma.user.deleteMany();
@@ -93,6 +94,37 @@ async function main() {
         startTime: new Date(new Date().setHours(8, 30, 0, 0)),
         endTime: new Date(new Date().setHours(17, 0, 0, 0)),
         isValidated: false,
+      },
+    ],
+  });
+
+  // ── Seed sample user activity logs ─────────────────────────────────────────
+  await prisma.userLog.createMany({
+    data: [
+      {
+        userId: admin.id,
+        action: "LOGIN",
+        description: "Login ke dalam sistem sebagai Administrator",
+      },
+      {
+        userId: intern1.id,
+        action: "LOGIN",
+        description: "Login ke dalam sistem sebagai Peserta Magang",
+      },
+      {
+        userId: intern1.id,
+        action: "CREATE_LOGSHEET",
+        description: 'Menginput logsheet aktivitas: "Analisis Kebutuhan Sistem"',
+      },
+      {
+        userId: intern2.id,
+        action: "LOGIN",
+        description: "Login ke dalam sistem sebagai Peserta Magang",
+      },
+      {
+        userId: intern2.id,
+        action: "CREATE_LOGSHEET",
+        description: 'Menginput logsheet aktivitas: "Desain UI Dashboard"',
       },
     ],
   });

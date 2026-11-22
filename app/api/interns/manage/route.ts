@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { recordUserLog } from "@/lib/user-log";
 import bcrypt from "bcryptjs";
 
 function sanitizeString(value: unknown): string {
@@ -96,6 +97,12 @@ export async function POST(request: NextRequest) {
     select: { id: true, name: true, email: true, department: true, role: true, createdAt: true },
   });
 
+  await recordUserLog({
+    userId: session.user.id,
+    action: "MANAGE_INTERN",
+    description: `Menambahkan akun peserta magang baru: ${cleanName} (${cleanEmail})`,
+  });
+
   return NextResponse.json(
     { message: "Akun intern berhasil dibuat.", data: user },
     { status: 201 }
@@ -187,6 +194,12 @@ export async function PATCH(request: NextRequest) {
     select: { id: true, name: true, email: true, department: true, role: true, createdAt: true },
   });
 
+  await recordUserLog({
+    userId: session.user.id,
+    action: "MANAGE_INTERN",
+    description: `Memperbarui data peserta magang: ${updated.name} (${updated.email})`,
+  });
+
   return NextResponse.json({
     message: "Data intern berhasil diperbarui.",
     data: updated,
@@ -223,6 +236,12 @@ export async function DELETE(request: NextRequest) {
   }
 
   await prisma.user.delete({ where: { id } });
+
+  await recordUserLog({
+    userId: session.user.id,
+    action: "MANAGE_INTERN",
+    description: `Menghapus akun peserta magang: ${user.name} (${user.email})`,
+  });
 
   return NextResponse.json({ message: "Akun intern berhasil dihapus." });
 }

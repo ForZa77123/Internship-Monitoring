@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { calculateDiscrepancy } from "@/lib/utils";
+import { recordUserLog } from "@/lib/user-log";
 
 /**
  * GET /api/activity-logs
@@ -184,6 +185,12 @@ export async function POST(request: NextRequest) {
     },
   });
 
+  await recordUserLog({
+    userId: session.user.id,
+    action: "CREATE_LOGSHEET",
+    description: `Menginput logsheet aktivitas: "${taskTitle}"`,
+  });
+
   return NextResponse.json({ message: "Activity log created.", data: log }, { status: 201 });
 }
 
@@ -305,6 +312,12 @@ export async function PUT(request: NextRequest) {
     },
   });
 
+  await recordUserLog({
+    userId: session.user.id,
+    action: "UPDATE_LOGSHEET",
+    description: `Memperbarui/merevisi logsheet aktivitas: "${taskTitle}"`,
+  });
+
   return NextResponse.json({
     message: "Logsheet berhasil diperbarui.",
     data: updated,
@@ -353,6 +366,12 @@ export async function DELETE(request: NextRequest) {
   }
 
   await prisma.activityLog.delete({ where: { id } });
+
+  await recordUserLog({
+    userId: session.user.id,
+    action: "DELETE_LOGSHEET",
+    description: `Menghapus logsheet aktivitas: "${existing.taskTitle}"`,
+  });
 
   return NextResponse.json({ message: "Logsheet berhasil dihapus." });
 }

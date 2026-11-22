@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { calculateProductiveMinutes } from "@/lib/utils";
+import { recordUserLog } from "@/lib/user-log";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import ExcelJS from "exceljs";
@@ -157,6 +158,17 @@ export async function GET(request: NextRequest) {
   if (endDate) dateFilter.lte = endDate;
 
   try {
+    const labelMap: Record<string, string> = {
+      presence: "Laporan Kehadiran Fisik AI",
+      logsheet: "Laporan Logsheet Aktivitas",
+      summary: "Laporan Ringkasan Performa",
+    };
+    await recordUserLog({
+      userId: session.user.id,
+      action: "EXPORT_REPORT",
+      description: `Mengunduh file Excel: ${labelMap[type] ?? type}`,
+    });
+
     if (type === "presence") {
       return await exportPresenceLogs(internId, dateFilter);
     } else if (type === "logsheet") {

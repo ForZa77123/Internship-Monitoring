@@ -38,13 +38,27 @@ model User {
   password     String
   role         Role          @default(INTERN)
   department   String?       // Intern specialization (UI/UX, Front End, etc.)
-  presenceLogs PresenceLog[]
-  activityLogs ActivityLog[]
+  presenceLogs  PresenceLog[]
+  activityLogs  ActivityLog[]
   validatedLogs ActivityLog[] @relation("ValidatedActivities")
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  userLogs      UserLog[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   @@map("users")
+}
+
+model UserLog {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action      String
+  description String   @db.Text
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@map("user_logs")
 }
 
 model PresenceLog {

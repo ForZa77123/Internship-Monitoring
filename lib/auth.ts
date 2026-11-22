@@ -3,10 +3,12 @@ import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit, clearRateLimit } from "@/lib/rate-limit";
+import { recordUserLog } from "@/lib/user-log";
 import bcrypt from "bcryptjs";
 import type { Role } from "@prisma/client";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true,
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
   pages: {
@@ -47,6 +49,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         clearRateLimit(`login:${emailKey}`);
+
+        await recordUserLog({
+          userId: user.id,
+          action: "LOGIN",
+          description: `Login ke dalam sistem sebagai ${user.role === "ADMIN" ? "Administrator" : "Peserta Magang"}`,
+        });
 
         return {
           id: user.id,
