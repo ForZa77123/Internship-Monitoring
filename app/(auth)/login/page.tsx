@@ -3,9 +3,14 @@
 import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2, ShieldCheck, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, Loader2, ShieldCheck, ArrowRight, UserCheck, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  DEMO_VIEWER_ADMIN_EMAIL,
+  DEMO_VIEWER_INTERN_EMAIL,
+  DEMO_VIEWER_PASSWORD,
+} from "@/lib/demo-viewer";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,11 +19,35 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [viewerLoading, setViewerLoading] = useState<"admin" | "intern" | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const handleViewerLogin = async (mode: "admin" | "intern") => {
+    setError("");
+    setViewerLoading(mode);
+    try {
+      const result = await signIn("credentials", {
+        email: mode === "admin" ? DEMO_VIEWER_ADMIN_EMAIL : DEMO_VIEWER_INTERN_EMAIL,
+        password: DEMO_VIEWER_PASSWORD,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError("Gagal masuk ke Mode Viewer. Silakan coba lagi.");
+      } else {
+        router.push("/");
+        router.refresh();
+      }
+    } catch {
+      setError("Terjadi kesalahan. Silakan coba lagi.");
+    } finally {
+      setViewerLoading(null);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,7 +198,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               className="w-full h-10 text-sm font-semibold mt-2 transition-all duration-300 hover:shadow-lg hover:shadow-primary/25 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
-              disabled={isLoading}
+              disabled={isLoading || viewerLoading !== null}
               id="login-submit-btn"
             >
               {isLoading ? (
@@ -185,6 +214,50 @@ export default function LoginPage() {
               )}
             </Button>
           </form>
+
+          {/* Pratinjau Mode Viewer (Read-Only) */}
+          <div className="mt-6 pt-5 border-t border-border">
+            <p className="text-xs font-medium text-muted-foreground text-center mb-3">
+              Pratinjau Sistem — Mode Viewer (Read-Only)
+            </p>
+            <div className="grid grid-cols-2 gap-2.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 text-xs font-medium"
+                disabled={isLoading || viewerLoading !== null}
+                onClick={() => handleViewerLogin("admin")}
+                id="viewer-admin-btn"
+              >
+                {viewerLoading === "admin" ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                ) : (
+                  <UserCheck className="w-3.5 h-3.5 mr-1.5 text-primary" />
+                )}
+                Viewer Admin
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 text-xs font-medium"
+                disabled={isLoading || viewerLoading !== null}
+                onClick={() => handleViewerLogin("intern")}
+                id="viewer-intern-btn"
+              >
+                {viewerLoading === "intern" ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                ) : (
+                  <Users className="w-3.5 h-3.5 mr-1.5 text-primary" />
+                )}
+                Viewer Peserta
+              </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground text-center mt-2">
+              Hanya untuk melihat tampilan &amp; fitur — data tidak dapat diubah.
+            </p>
+          </div>
         </div>
       </div>
     </div>

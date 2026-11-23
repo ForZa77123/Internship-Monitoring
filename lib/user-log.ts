@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { DEMO_VIEWER_ADMIN_ID } from "@/lib/demo-viewer";
 
 export type UserLogAction =
   | "LOGIN"
@@ -15,6 +16,9 @@ export async function recordUserLog(params: {
   action: UserLogAction | string;
   description: string;
 }) {
+  if (params.userId === DEMO_VIEWER_ADMIN_ID) {
+    return;
+  }
   try {
     await prisma.userLog.create({
       data: {

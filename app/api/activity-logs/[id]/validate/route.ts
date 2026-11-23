@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { recordUserLog } from "@/lib/user-log";
+import { isDemoViewerSession, demoViewerBlockedResponse } from "@/lib/demo-viewer";
 import { ValidationStatus } from "@prisma/client";
 
 /**
@@ -27,6 +28,10 @@ export async function PATCH(
       { error: "Forbidden: Admin access required." },
       { status: 403 }
     );
+  }
+
+  if (isDemoViewerSession(session)) {
+    return demoViewerBlockedResponse();
   }
 
   let body: { action?: string; note?: string };

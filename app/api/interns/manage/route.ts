@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { recordUserLog } from "@/lib/user-log";
+import { isDemoViewerSession, demoViewerBlockedResponse } from "@/lib/demo-viewer";
 import bcrypt from "bcryptjs";
 
 function sanitizeString(value: unknown): string {
@@ -29,6 +30,10 @@ export async function POST(request: NextRequest) {
 
   if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
+
+  if (isDemoViewerSession(session)) {
+    return demoViewerBlockedResponse();
   }
 
   if (!checkRateLimit(`manage:${session.user.id}`, 30, 60_000)) {
@@ -114,6 +119,10 @@ export async function PATCH(request: NextRequest) {
 
   if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
+
+  if (isDemoViewerSession(session)) {
+    return demoViewerBlockedResponse();
   }
 
   if (!checkRateLimit(`manage:${session.user.id}`, 30, 60_000)) {
@@ -211,6 +220,10 @@ export async function DELETE(request: NextRequest) {
 
   if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
+
+  if (isDemoViewerSession(session)) {
+    return demoViewerBlockedResponse();
   }
 
   if (!checkRateLimit(`manage:${session.user.id}`, 30, 60_000)) {

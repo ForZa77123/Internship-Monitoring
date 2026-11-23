@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { InternSidebar } from "@/components/intern/InternSidebar";
+import { DemoViewerBanner } from "@/components/ui/DemoViewerBanner";
 import { prisma } from "@/lib/prisma";
 
 export default async function DashboardLayout({
@@ -26,7 +27,10 @@ export default async function DashboardLayout({
         department={user?.department ?? "Peserta Magang"}
       />
       {/* pt-14 on mobile for the fixed header bar, lg:pt-0 resets on desktop */}
-      <main className="flex-1 overflow-auto pt-14 lg:pt-0">{children}</main>
+      <main className="flex-1 overflow-auto pt-14 lg:pt-0">
+        {session.user.isDemoViewer && <DemoViewerBanner roleLabel="Peserta Magang" />}
+        {children}
+      </main>
     </div>
   );
 }

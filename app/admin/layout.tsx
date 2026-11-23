@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { DemoViewerBanner } from "@/components/ui/DemoViewerBanner";
 
 export default async function AdminLayout({
   children,
@@ -18,6 +19,7 @@ export default async function AdminLayout({
       <AdminSidebar adminName={session.user.name ?? "Admin"} />
       {/* pt-14 on mobile for the fixed header bar, lg:pt-0 resets on desktop */}
       <main className="flex-1 overflow-auto pt-14 lg:pt-0">
+        {session.user.isDemoViewer && <DemoViewerBanner roleLabel="Admin" />}
         {children}
       </main>
     </div>

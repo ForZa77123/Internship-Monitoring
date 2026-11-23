@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { calculateDiscrepancy } from "@/lib/utils";
 import { recordUserLog } from "@/lib/user-log";
+import { isDemoViewerSession, demoViewerBlockedResponse } from "@/lib/demo-viewer";
 
 /**
  * GET /api/activity-logs
@@ -112,6 +113,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (isDemoViewerSession(session)) {
+    return demoViewerBlockedResponse();
+  }
+
   let body: {
     taskTitle?: string;
     description?: string;
@@ -207,6 +212,10 @@ export async function PUT(request: NextRequest) {
       { error: "Forbidden: Only interns can edit their logs." },
       { status: 403 }
     );
+  }
+
+  if (isDemoViewerSession(session)) {
+    return demoViewerBlockedResponse();
   }
 
   let body: {
@@ -336,6 +345,10 @@ export async function DELETE(request: NextRequest) {
       { error: "Forbidden: Only interns can delete their logs." },
       { status: 403 }
     );
+  }
+
+  if (isDemoViewerSession(session)) {
+    return demoViewerBlockedResponse();
   }
 
   const { searchParams } = new URL(request.url);

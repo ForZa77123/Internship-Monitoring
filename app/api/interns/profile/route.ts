@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { recordUserLog } from "@/lib/user-log";
+import { isDemoViewerSession, demoViewerBlockedResponse } from "@/lib/demo-viewer";
 import bcrypt from "bcryptjs";
 
 export async function GET(request: NextRequest) {
@@ -41,6 +42,10 @@ export async function PATCH(request: NextRequest) {
 
   if (!session || session.user.role !== "INTERN") {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
+
+  if (isDemoViewerSession(session)) {
+    return demoViewerBlockedResponse();
   }
 
   let body: {

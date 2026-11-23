@@ -4,6 +4,12 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit, clearRateLimit } from "@/lib/rate-limit";
 import { recordUserLog } from "@/lib/user-log";
+import {
+  DEMO_VIEWER_ADMIN_EMAIL,
+  DEMO_VIEWER_ADMIN_ID,
+  DEMO_VIEWER_INTERN_EMAIL,
+  DEMO_VIEWER_PASSWORD,
+} from "@/lib/demo-viewer";
 import bcrypt from "bcryptjs";
 import type { Role } from "@prisma/client";
 
@@ -27,6 +33,49 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         const emailKey = String(credentials.email).trim().toLowerCase();
+
+        // ── Mode Viewer (Read-Only Demo) ─────────────────────────────────────
+        if (
+          emailKey === DEMO_VIEWER_ADMIN_EMAIL &&
+          credentials.password === DEMO_VIEWER_PASSWORD
+        ) {
+          return {
+            id: DEMO_VIEWER_ADMIN_ID,
+            name: "Viewer Admin (Demo)",
+            email: DEMO_VIEWER_ADMIN_EMAIL,
+            role: "ADMIN" as Role,
+            isDemoViewer: true,
+          };
+        }
+
+        if (
+          emailKey === DEMO_VIEWER_INTERN_EMAIL &&
+          credentials.password === DEMO_VIEWER_PASSWORD
+        ) {
+          const sampleIntern =
+            (await prisma.user.findUnique({
+              where: { email: "budi@intern.com" },
+              select: { id: true, name: true },
+            })) ??
+            (await prisma.user.findFirst({
+              where: { role: "INTERN" },
+              select: { id: true, name: true },
+              orderBy: { createdAt: "asc" },
+            }));
+
+          if (!sampleIntern) {
+            throw new Error("Belum ada data peserta magang untuk pratinjau demo.");
+          }
+
+          return {
+            id: sampleIntern.id,
+            name: `${sampleIntern.name} (Viewer)`,
+            email: DEMO_VIEWER_INTERN_EMAIL,
+            role: "INTERN" as Role,
+            isDemoViewer: true,
+          };
+        }
+
         if (!checkRateLimit(`login:${emailKey}`, 10, 5 * 60_000)) {
           throw new Error("Terlalu banyak percobaan login. Silakan tunggu 5 menit.");
         }
@@ -67,18 +116,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, user }) {
-      // On first sign-in, user object is available; persist role & id into token
+      // On first sign-in, user object is available; persist role, id & viewer flag into token
       if (user) {
         token.id = user.id;
-        token.role = (user as { id: string; role: Role }).role;
+        token.role = (user as { id: string; role: Role; isDemoViewer?: boolean }).role;
+        token.isDemoViewer = Boolean(
+          (user as { id: string; role: Role; isDemoViewer?: boolean }).isDemoViewer
+        );
       }
       return token;
     },
     async session({ session, token }) {
-      // Expose id and role to the client session
+      // Expose id, role & viewer flag to the client session
       if (token && session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as Role;
+        session.user.isDemoViewer = Boolean(token.isDemoViewer);
       }
       return session;
     },
