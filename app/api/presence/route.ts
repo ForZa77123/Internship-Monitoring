@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { PresenceStatus } from "@prisma/client";
 import { checkRateLimit } from "@/lib/rate-limit";
+import bcrypt from "bcryptjs";
 
 /**
  * POST /api/presence
@@ -93,19 +94,34 @@ export async function POST(request: NextRequest) {
   });
 
   if (!intern) {
-    const cleanName = internId.replace(/^\d+_/, "").replace(/_/g, " ").trim().toLowerCase();
-    if (cleanName.length >= 2) {
+    const cleanName = internId.replace(/^\d+_/, "").replace(/_/g, " ").trim();
+    const normalizedTarget = cleanName.toLowerCase();
+    if (normalizedTarget.length >= 2) {
       const allInterns = await prisma.user.findMany({
         where: { role: "INTERN" },
         select: { id: true, name: true },
       });
       const matched =
-        allInterns.find((u) => u.name.trim().toLowerCase() === cleanName) ||
-        (cleanName.length >= 3
-          ? allInterns.find((u) => u.name.toLowerCase().includes(cleanName))
+        allInterns.find((u) => u.name.trim().toLowerCase() === normalizedTarget) ||
+        (normalizedTarget.length >= 3
+          ? allInterns.find((u) => u.name.toLowerCase().includes(normalizedTarget))
           : undefined);
       if (matched) {
         intern = await prisma.user.findUnique({ where: { id: matched.id } });
+      } else {
+        // Auto-create intern account (selaras dengan lib/sync.ts) agar data AI peserta baru tidak ditolak 404
+        const email = `${normalizedTarget.replace(/\s+/g, ".")}@intern.com`;
+        const hashedPassword = await bcrypt.hash("password123", 12);
+        intern = await prisma.user.upsert({
+          where: { email },
+          update: {},
+          create: {
+            name: cleanName,
+            email,
+            password: hashedPassword,
+            role: "INTERN",
+          },
+        });
       }
     }
   }
