@@ -97,7 +97,7 @@ function SidebarContent({ adminName }: { adminName: string }) {
         </div>
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
@@ -126,7 +126,10 @@ function SidebarContent({ adminName }: { adminName: string }) {
           id="admin-logout-btn"
           variant="ghost"
           className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground h-9 text-sm"
-          onClick={() => signOut({ callbackUrl: "/login" })}
+          onClick={async () => {
+            await signOut({ redirect: false });
+            window.location.href = "/login";
+          }}
         >
           <LogOut className="w-4 h-4" />
           Keluar
@@ -139,7 +142,7 @@ function SidebarContent({ adminName }: { adminName: string }) {
 export function AdminSidebar({ adminName }: AdminSidebarProps) {
   return (
     <>
-      <aside className="hidden lg:flex flex-col w-60 min-h-screen bg-card/50 border-r border-border/50 shrink-0">
+      <aside className="hidden lg:flex flex-col w-60 sticky top-0 h-screen bg-card/50 border-r border-border/50 shrink-0">
         <SidebarContent adminName={adminName} />
       </aside>
 
