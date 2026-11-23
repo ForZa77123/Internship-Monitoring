@@ -42,6 +42,8 @@ export async function GET(request: NextRequest) {
     orderBy: { name: "asc" },
   });
 
+  const AUTO_AWAY_TIMEOUT_MS = 5 * 60 * 1000; // 5 menit (selaras dengan Auto Out-of-Region AI CCTV)
+
   const result = interns.map((intern) => {
     const latestLog = intern.presenceLogs[0] ?? null;
     const productiveMinutes = calculateProductiveMinutes(
@@ -49,12 +51,21 @@ export async function GET(request: NextRequest) {
       now
     );
 
+    let currentStatus = latestLog?.status ?? "UNKNOWN";
+    if (
+      latestLog &&
+      currentStatus !== "AWAY" &&
+      now.getTime() - latestLog.timestamp.getTime() > AUTO_AWAY_TIMEOUT_MS
+    ) {
+      currentStatus = "AWAY";
+    }
+
     return {
       id: intern.id,
       name: intern.name,
       email: intern.email,
       department: intern.department,
-      currentStatus: latestLog?.status ?? "UNKNOWN",
+      currentStatus,
       lastSeen: latestLog?.timestamp ?? null,
       productiveMinutesToday: productiveMinutes,
     };

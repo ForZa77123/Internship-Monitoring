@@ -87,22 +87,52 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // ── Verify intern exists ───────────────────────────────────────────────────
-  const intern = await prisma.user.findFirst({
+  // ── Verify intern exists (match exact ID OR AI personnel_id e.g. "002_Felix") ──
+  let intern = await prisma.user.findFirst({
     where: { id: internId, role: "INTERN" },
   });
 
   if (!intern) {
+    const cleanName = internId.replace(/^\d+_/, "").replace(/_/g, " ").trim().toLowerCase();
+    if (cleanName.length >= 2) {
+      const allInterns = await prisma.user.findMany({
+        where: { role: "INTERN" },
+        select: { id: true, name: true },
+      });
+      const matched =
+        allInterns.find((u) => u.name.trim().toLowerCase() === cleanName) ||
+        (cleanName.length >= 3
+          ? allInterns.find((u) => u.name.toLowerCase().includes(cleanName))
+          : undefined);
+      if (matched) {
+        intern = await prisma.user.findUnique({ where: { id: matched.id } });
+      }
+    }
+  }
+
+  if (!intern) {
     return NextResponse.json(
-      { error: `Not Found: No intern found with id "${internId}".` },
+      { error: `Not Found: No intern found matching "${internId}".` },
       { status: 404 }
     );
   }
 
-  // ── Create presence log ────────────────────────────────────────────────────
+  // ── Create presence log (skip exact duplicate timestamp) ───────────────────
+  const existing = await prisma.presenceLog.findFirst({
+    where: { userId: intern.id, timestamp: parsedTimestamp },
+    select: { id: true },
+  });
+
+  if (existing) {
+    return NextResponse.json(
+      { message: "Presence log already recorded.", data: existing },
+      { status: 200 }
+    );
+  }
+
   const log = await prisma.presenceLog.create({
     data: {
-      userId: internId,
+      userId: intern.id,
       status: status as PresenceStatus,
       timestamp: parsedTimestamp,
     },

@@ -163,8 +163,8 @@ export default function AdminDashboardPage() {
     isValidating,
     mutate,
   } = useSWR<{ data: InternStatus[] }>("/api/interns", fetcher, {
-    refreshInterval: 60_000,
-    revalidateOnFocus: false,
+    refreshInterval: 10_000,
+    revalidateOnFocus: true,
     revalidateOnReconnect: true,
   });
 
@@ -192,7 +192,7 @@ export default function AdminDashboardPage() {
             ) : (
               <>
                 <Wifi className="w-4 h-4 text-emerald-500" />
-                <span>Auto-refresh 1 menit</span>
+                <span>Auto-refresh 10 detik</span>
               </>
             )}
           </div>
